@@ -8,7 +8,7 @@ using Verse;
 
 namespace SaveStorageSettings
 {
-    static class IOUtil
+    internal static class IOUtil
     {
         private const string BREAK = "---";
         public static bool LoadFilters(ThingFilter filter, FileInfo fi)
@@ -20,9 +20,8 @@ namespace SaveStorageSettings
                     // Load Data
                     using (StreamReader sr = new StreamReader(fi.FullName))
                     {
-                        string[] kv = null;
                         if (sr.EndOfStream ||
-                            !ReadField(sr, out kv))
+                            !ReadField(sr, out string[] kv))
                         {
                             throw new Exception("Trying to read from an empty file");
                         }
@@ -56,9 +55,8 @@ namespace SaveStorageSettings
                     // Load Data
                     using (StreamReader sr = new StreamReader(fi.FullName))
                     {
-                        string[] kv = null;
                         if (sr.EndOfStream ||
-                            !ReadField(sr, out kv))
+                            !ReadField(sr, out string[] kv))
                         {
                             throw new Exception("Trying to read from an empty file");
                         }
@@ -73,8 +71,7 @@ namespace SaveStorageSettings
                                     line = sr.ReadLine().Trim();
                                     if (line != null && line.StartsWith("bill:"))
                                     {
-                                        Bill_Production b;
-                                        if (TryCreateBill(sr, out b))
+                                        if (TryCreateBill(sr, out Bill_Production b))
                                         {
                                             if (b != null)
                                             {
@@ -113,9 +110,8 @@ namespace SaveStorageSettings
                     // Load Data
                     using (StreamReader sr = new StreamReader(fi.FullName))
                     {
-                        string[] kv = null;
                         if (sr.EndOfStream ||
-                            !ReadField(sr, out kv))
+                            !ReadField(sr, out string[] kv))
                         {
                             throw new Exception("Trying to read from an empty file");
                         }
@@ -169,9 +165,8 @@ namespace SaveStorageSettings
                     // Load Data
                     using (StreamReader sr = new StreamReader(fi.FullName))
                     {
-                        string[] kv = null;
                         if (sr.EndOfStream ||
-                            !ReadField(sr, out kv))
+                            !ReadField(sr, out string[] kv))
                         {
                             throw new Exception("Trying to read from an empty file");
                         }
@@ -226,9 +221,8 @@ namespace SaveStorageSettings
                     // Load Data
                     using (StreamReader sr = new StreamReader(fi.FullName))
                     {
-                        string[] kv = null;
                         if (sr.EndOfStream ||
-                            !ReadField(sr, out kv))
+                            !ReadField(sr, out string[] kv))
                         {
                             throw new Exception("Trying to read from an empty file");
                         }
@@ -262,7 +256,7 @@ namespace SaveStorageSettings
             }
         }
 
-        static void LogException(string msg, Exception e)
+        private static void LogException(string msg, Exception e)
         {
             Log.Warning(msg + Environment.NewLine + e.GetType().Name + " " + e.Message + " " + e.StackTrace);
             Messages.Message(msg, MessageTypeDefOf.NegativeEvent);
@@ -343,9 +337,9 @@ namespace SaveStorageSettings
                             {
                                 Bill_Production p = b as Bill_Production;
 
-                                BillStoreModeDef storeMode       = p.GetStoreMode();
-                                Zone_Stockpile   storeZone       = p.GetStoreZone();
-                                Zone_Stockpile   includeFromZone = p.includeFromZone;
+                                BillStoreModeDef storeMode = p.GetStoreMode();
+                                Zone_Stockpile storeZone = p.GetStoreZone();
+                                Zone_Stockpile includeFromZone = p.includeFromZone;
 
                                 WriteField(sw, "bill", p.recipe.defName);
                                 if (b is Bill_ProductionWithUft)
@@ -368,7 +362,11 @@ namespace SaveStorageSettings
                                 WriteField(sw, "targetCount", p.targetCount.ToString());
                                 WriteField(sw, "includeEquipped", p.includeEquipped.ToString());
                                 WriteField(sw, "includeTainted", p.includeTainted.ToString());
-                                if (includeFromZone != null) WriteField(sw, "includeFromZone", includeFromZone.GetUniqueLoadID());
+                                if (includeFromZone != null)
+                                {
+                                    WriteField(sw, "includeFromZone", includeFromZone.GetUniqueLoadID());
+                                }
+
                                 WriteField(sw, "limitToAllowedStuff", p.limitToAllowedStuff.ToString());
                                 WriteField(sw, "pauseWhenSatisfied", p.pauseWhenSatisfied.ToString());
                                 WriteField(sw, "unpauseWhenYouHave", p.unpauseWhenYouHave.ToString());
@@ -515,17 +513,29 @@ namespace SaveStorageSettings
                             case "repeatMode":
                                 bill.repeatMode = null;
                                 if (BillRepeatModeDefOf.Forever.defName.Equals(kv[1]))
+                                {
                                     bill.repeatMode = BillRepeatModeDefOf.Forever;
+                                }
                                 else if (BillRepeatModeDefOf.RepeatCount.defName.Equals(kv[1]))
+                                {
                                     bill.repeatMode = BillRepeatModeDefOf.RepeatCount;
+                                }
                                 else if (BillRepeatModeDefOf.TargetCount.defName.Equals(kv[1]))
+                                {
                                     bill.repeatMode = BillRepeatModeDefOf.TargetCount;
+                                }
                                 else if ("TD_ColonistCount".Equals(kv[1]))
+                                {
                                     EverybodyGetsOneUtil.TryGetRepeatModeDef("TD_ColonistCount", out bill.repeatMode);
+                                }
                                 else if ("TD_XPerColonist".Equals(kv[1]))
+                                {
                                     EverybodyGetsOneUtil.TryGetRepeatModeDef("TD_XPerColonist", out bill.repeatMode);
+                                }
                                 else if ("TD_WithSurplusIng".Equals(kv[1]))
+                                {
                                     EverybodyGetsOneUtil.TryGetRepeatModeDef("TD_WithSurplusIng", out bill.repeatMode);
+                                }
 
                                 if (bill.repeatMode == null)
                                 {
@@ -550,7 +560,10 @@ namespace SaveStorageSettings
                                 Zone_Stockpile storeZone = null;
                                 if (storeMode == BillStoreModeDefOf.SpecificStockpile)
                                 {
-                                    if (storeSplit.Length > 1) storeZone = (Zone_Stockpile)Find.CurrentMap?.zoneManager.AllZones.FirstOrFallback(z => z.GetUniqueLoadID() == storeSplit[1]);
+                                    if (storeSplit.Length > 1)
+                                    {
+                                        storeZone = (Zone_Stockpile)Find.CurrentMap?.zoneManager.AllZones.FirstOrFallback(z => z.GetUniqueLoadID() == storeSplit[1]);
+                                    }
 
                                     if (storeZone == null)
                                     {
@@ -605,16 +618,7 @@ namespace SaveStorageSettings
             }
             catch
             {
-                string error = "";
-                if (bill != null && bill.recipe != null)
-                {
-                    error = "Unable to load bill [" + bill.recipe.defName + "].";
-                }
-                else
-                {
-                    error = "Unable to load a bill.";
-                }
-
+                string error = bill != null && bill.recipe != null ? "Unable to load bill [" + bill.recipe.defName + "]." : "Unable to load a bill.";
                 if (kv == null || kv.Length < 2)
                 {
                     error += " Current line: [" + kv[0] + ":" + kv[1] + "]";
@@ -641,16 +645,16 @@ namespace SaveStorageSettings
                             case BREAK:
                                 return true;
                             case "recipeDefName":
-                                var def = DefDatabase<RecipeDef>.GetNamed(kv[1]);
+                                RecipeDef def = DefDatabase<RecipeDef>.GetNamed(kv[1]);
                                 if (def == null)
                                 {
                                     Log.Warning("Unable to load bill with RecipeDef of [" + kv[1] + "]");
                                     return false;
                                 }
-                                bill = new Bill_Medical(def);
+                                bill = new Bill_Medical(def, null);
                                 break;
                             case "part":
-                                var pv = kv[1].Split(':');
+                                string[] pv = kv[1].Split(':');
                                 bill.Part = null;
                                 string partToFind = pv[0];
                                 foreach (BodyPartRecord part in pawn.health.hediffSet.GetNotMissingParts(BodyPartHeight.Undefined, BodyPartDepth.Undefined, null, null))
@@ -664,11 +668,18 @@ namespace SaveStorageSettings
                                 if (bill.Part == null)
                                 {
                                     if (bill.recipe.defName.StartsWith("Remove"))
+                                    {
                                         Log.Warning("Pawn [" + pawn.Name.ToStringShort + "] does not have body part [" + partToFind + "] to have removed.");
+                                    }
                                     else if (bill.recipe.defName.StartsWith("Install"))
+                                    {
                                         Log.Warning("Unknown body part to install part to [" + partToFind + "].");
+                                    }
                                     else
+                                    {
                                         Log.Warning("Unknown body part [" + partToFind + "].");
+                                    }
+
                                     return false;
                                 }
                                 break;
@@ -678,16 +689,7 @@ namespace SaveStorageSettings
             }
             catch (Exception e)
             {
-                string error = "";
-                if (bill != null && bill.recipe != null)
-                {
-                    error = "Unable to load bill [" + bill.recipe.defName + "].";
-                }
-                else
-                {
-                    error = "Unable to load a bill.";
-                }
-
+                string error = bill != null && bill.recipe != null ? "Unable to load bill [" + bill.recipe.defName + "]." : "Unable to load a bill.";
                 if (kv == null || kv.Length < 2)
                 {
                     error += " Current line: [" + kv[0] + ":" + kv[1] + "]";
@@ -721,8 +723,10 @@ namespace SaveStorageSettings
                                     Log.Warning("Unable to load drug policy with Drug of [" + kv[1] + "]");
                                     return false;
                                 }
-                                entry = new DrugPolicyEntry();
-                                entry.drug = def;
+                                entry = new DrugPolicyEntry
+                                {
+                                    drug = def
+                                };
                                 break;
                             case "allowedForAddiction":
                                 entry.allowedForAddiction = bool.Parse(kv[1]);
@@ -754,16 +758,9 @@ namespace SaveStorageSettings
             }
             catch
             {
-                string error = "";
-                if (entry != null && entry.drug != null)
-                {
-                    error = "Unable to load drug policy [" + entry.drug.defName + "].";
-                }
-                else
-                {
-                    error = "Unable to load a drug policy.";
-                }
-
+                string error = entry != null && entry.drug != null
+                    ? "Unable to load drug policy [" + entry.drug.defName + "]."
+                    : "Unable to load a drug policy.";
                 if (kv == null || kv.Length < 2)
                 {
                     error += " Current line: [" + kv[0] + ":" + kv[1] + "]";
@@ -775,7 +772,7 @@ namespace SaveStorageSettings
             return true;
         }
 
-        private static bool ReadField(StreamReader sr, out String[] nameValue)
+        private static bool ReadField(StreamReader sr, out string[] nameValue)
         {
             string line = sr.ReadLine();
             if (line != null && !line.Equals(BREAK))
@@ -789,7 +786,9 @@ namespace SaveStorageSettings
                     {
                         value = line.Substring(i + 1, line.Length - i - 1);
                         if ("null".Equals(value))
+                        {
                             value = null;
+                        }
                     }
                     nameValue = new string[] { name, value };
                     return true;
@@ -804,17 +803,21 @@ namespace SaveStorageSettings
             StringBuilder sb = new StringBuilder(name);
             sb.Append(":");
             if (value == null)
+            {
                 sb.Append("null");
+            }
             else
+            {
                 sb.Append(value);
+            }
+
             sb.Append(Environment.NewLine);
             sw.Write(sb.ToString());
         }
 
         public static bool TryGetFileInfo(string storageTypeName, string fileName, out FileInfo fi)
         {
-            string path;
-            if (TryGetDirectoryPath(storageTypeName, out path))
+            if (TryGetDirectoryPath(storageTypeName, out string path))
             {
                 fi = new FileInfo(Path.Combine(path, fileName.ToString() + ".txt"));
                 return true;
@@ -861,10 +864,9 @@ namespace SaveStorageSettings
             bool changed = false;
             try
             {
-                string[] kv;
                 while (!sr.EndOfStream)
                 {
-                    if (ReadField(sr, out kv))
+                    if (ReadField(sr, out string[] kv))
                     {
                         switch (kv[0])
                         {
@@ -946,7 +948,10 @@ namespace SaveStorageSettings
                                             tfr.DisallowedSpecialFilters = l;
                                         }
                                         else
+                                        {
                                             tfr.DisallowedSpecialFilters.Clear();
+                                        }
+
                                         changed = true;
                                     }
                                     catch (Exception e)
@@ -962,7 +967,9 @@ namespace SaveStorageSettings
             finally
             {
                 if (changed)
+                {
                     tfr.SettingsChangedCallback();
+                }
             }
         }
 
@@ -975,20 +982,20 @@ namespace SaveStorageSettings
                 if (filter.Allows(thing))
                 {
                     if (sb.Length > 0)
+                    {
                         sb.Append("/");
+                    }
+
                     sb.Append(thing.defName);
                 }
             }
             WriteField(sw, "allowedDefs", sb.ToString());
-            sb = null;
-
             if (filter.allowedHitPointsConfigurable)
             {
                 sb = new StringBuilder(filter.AllowedHitPointsPercents.min.ToString("N4"));
                 sb.Append(":");
                 sb.Append(filter.AllowedHitPointsPercents.max.ToString("N4"));
                 WriteField(sw, "allowedHitPointsPercents", sb.ToString());
-                sb = null;
             }
 
             if (filter.allowedQualitiesConfigurable)
@@ -997,22 +1004,23 @@ namespace SaveStorageSettings
                 sb.Append(":");
                 sb.Append(filter.AllowedQualityLevels.max.ToString());
                 WriteField(sw, "allowedQualities", sb.ToString());
-                sb = null;
             }
 
             sb = new StringBuilder();
             foreach (SpecialThingFilterDef def in tfr.DisallowedSpecialFilters)
             {
                 if (sb.Length > 0)
+                {
                     sb.Append("/");
+                }
+
                 sb.Append(def.defName);
             }
             WriteField(sw, "disallowedSpecialFilters", sb.ToString());
-            sb = null;
         }
     }
 
-    class EverybodyGetsOneUtil
+    internal class EverybodyGetsOneUtil
     {
         private static Assembly ego = null;
         private static bool initialized = false;
@@ -1028,7 +1036,7 @@ namespace SaveStorageSettings
                         {
                             if (
                                 assembly.GetName().Name.Equals("Everybody_Gets_One") && (
-                                    assembly.GetType("Everybody_Gets_One.RepeatModeDefOf")  != null ||
+                                    assembly.GetType("Everybody_Gets_One.RepeatModeDefOf") != null ||
                                     assembly.GetType("TD_Enhancement_Pack.RepeatModeDefOf") != null
                                 )
                             )
@@ -1053,7 +1061,8 @@ namespace SaveStorageSettings
         {
             Log.Warning("Try get " + defName);
             def = null;
-            if (Exists) {
+            if (Exists)
+            {
                 Type repeatModeType = ego.GetType("Everybody_Gets_One.RepeatModeDefOf") ?? ego.GetType("TD_Enhancement_Pack.RepeatModeDefOf");
                 def = repeatModeType.GetField(defName, BindingFlags.Static | BindingFlags.Public).GetValue(null) as BillRepeatModeDef;
             }

@@ -16,53 +16,31 @@ namespace SaveStorageSettings
             this.filter = filter;
         }
 
-        internal IEnumerable<ThingDef> AllStorableThingDefs
-        {
-            get
-            {
-                return from def in DefDatabase<ThingDef>.AllDefs
-                       where def.EverStorable(true)
-                       select def;
-            }
-        }
+        internal IEnumerable<ThingDef> AllStorableThingDefs => from def in DefDatabase<ThingDef>.AllDefs
+                                                               where def.EverStorable(true)
+                                                               select def;
 
         internal HashSet<ThingDef> AllowedDefs
         {
-            get
-            {
-                return (HashSet<ThingDef>)this.GetPrivateFieldInfo("allowedDefs").GetValue(this.filter);
-            }
-            set
-            {
-                this.GetPrivateFieldInfo("allowedDefs").SetValue(this.filter, value);
-            }
+            get => (HashSet<ThingDef>)GetPrivateFieldInfo("allowedDefs").GetValue(filter);
+            set => GetPrivateFieldInfo("allowedDefs").SetValue(filter, value);
         }
 
         internal List<SpecialThingFilterDef> DisallowedSpecialFilters
         {
-            get
-            {
-                return (List<SpecialThingFilterDef>)this.GetPrivateFieldInfo("disallowedSpecialFilters").GetValue(this.filter);
-            }
-            set
-            {
-                this.GetPrivateFieldInfo("disallowedSpecialFilters").SetValue(this.filter, value);
-            }
+            get => (List<SpecialThingFilterDef>)GetPrivateFieldInfo("disallowedSpecialFilters").GetValue(filter);
+            set => GetPrivateFieldInfo("disallowedSpecialFilters").SetValue(filter, value);
         }
 
-        internal QualityRange AllowedQualities
-        {
-            get
-            {
-                return (QualityRange)this.GetPrivateFieldInfo("allowedQualities").GetValue(this.filter);
-            }
-        }
+        internal QualityRange AllowedQualities => (QualityRange)GetPrivateFieldInfo("allowedQualities").GetValue(filter);
 
         internal void SettingsChangedCallback()
         {
-            Action a = ((Action)this.GetPrivateFieldInfo("settingsChangedCallback").GetValue(this.filter));
+            Action a = (Action)GetPrivateFieldInfo("settingsChangedCallback").GetValue(filter);
             if (a != null)
+            {
                 a.Invoke();
+            }
         }
 
         private FieldInfo GetPrivateFieldInfo(string name)
