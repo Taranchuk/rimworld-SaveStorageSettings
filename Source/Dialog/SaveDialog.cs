@@ -99,18 +99,18 @@ namespace SaveStorageSettings.Dialog
 
         protected override void DoFileInteraction(FileInfo fi)
         {
-            IOUtil.SavePolicySettings(this.DrugPolicy, fi);
+            IOUtil.SaveDrugPolicySettings(this.DrugPolicy, fi);
             base.Close();
         }
     }
 
     class SaveFoodRestrictionDialog : FileListDialog
     {
-        private readonly FoodRestriction FoodRestriction;
+        private readonly FoodPolicy FoodPolicy;
 
-        internal SaveFoodRestrictionDialog(string type, FoodRestriction foodRestriction) : base(type)
+        internal SaveFoodRestrictionDialog(string type, FoodPolicy foodRestriction) : base(type)
         {
-            this.FoodRestriction = foodRestriction;
+            this.FoodPolicy = foodRestriction;
             this.interactButLabel = "OverwriteButton".Translate();
         }
 
@@ -124,9 +124,35 @@ namespace SaveStorageSettings.Dialog
 
         protected override void DoFileInteraction(FileInfo fi)
         {
-            IOUtil.SaveFoodRestrictionSettings(this.FoodRestriction, fi);
+            IOUtil.SaveFoodPolicySettings(this.FoodPolicy, fi);
             base.Close();
         }
     }
+
+    class SaveReadingPolicyDialog : FileListDialog
+    {
+        private readonly ReadingPolicy ReadingPolicy;
+
+        internal SaveReadingPolicyDialog(string type, ReadingPolicy readingPolicy) : base(type)
+        {
+            this.ReadingPolicy = readingPolicy;
+            this.interactButLabel = "OverwriteButton".Translate();
+        }
+
+        protected override bool ShouldDoTypeInField
+        {
+            get
+            {
+                return true;
+            }
+        }
+
+        protected override void DoFileInteraction(FileInfo fi)
+        {
+            IOUtil.SaveReadingPolicySettings(this.ReadingPolicy, fi);
+            base.Close();
+        }
+    }
+
 }
 

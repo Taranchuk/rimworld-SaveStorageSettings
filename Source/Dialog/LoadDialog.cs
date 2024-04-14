@@ -127,11 +127,11 @@ namespace SaveStorageSettings.Dialog
         }
     }
 
-    class LoadPolicyDialog : FileListDialog
+    class LoadDrugPolicyDialog : FileListDialog
     {
         private readonly DrugPolicy DrugPolicy;
 
-        internal LoadPolicyDialog(string storageTypeName, DrugPolicy drugPolicy) : base(storageTypeName)
+        internal LoadDrugPolicyDialog(string storageTypeName, DrugPolicy drugPolicy) : base(storageTypeName)
         {
             this.DrugPolicy = drugPolicy;
             this.interactButLabel = "LoadGameButton".Translate();
@@ -147,18 +147,18 @@ namespace SaveStorageSettings.Dialog
 
         protected override void DoFileInteraction(FileInfo fi)
         {
-            IOUtil.LoadPolicy(this.DrugPolicy, fi);
+            IOUtil.LoadDrugPolicy(this.DrugPolicy, fi);
             base.Close();
         }
     }
 
     class LoadFoodRestrictionDialog : FileListDialog
     {
-        private readonly FoodRestriction FoodRestriction;
+        private readonly FoodPolicy FoodPolicy;
 
-        internal LoadFoodRestrictionDialog(string storageTypeName, FoodRestriction foodRestriction) : base(storageTypeName)
+        internal LoadFoodRestrictionDialog(string storageTypeName, FoodPolicy foodPolicy) : base(storageTypeName)
         {
-            this.FoodRestriction = foodRestriction;
+            this.FoodPolicy = foodPolicy;
             this.interactButLabel = "LoadGameButton".Translate();
         }
 
@@ -172,8 +172,34 @@ namespace SaveStorageSettings.Dialog
 
         protected override void DoFileInteraction(FileInfo fi)
         {
-            IOUtil.LoadFoodRestriction(this.FoodRestriction, fi);
+            IOUtil.LoadFoodPolicy(this.FoodPolicy, fi);
             base.Close();
         }
     }
+
+    class LoadReadingPolicyDialog : FileListDialog
+    {
+        private readonly ReadingPolicy ReadingPolicy;
+
+        internal LoadReadingPolicyDialog(string storageTypeName, ReadingPolicy readingPolicy) : base(storageTypeName)
+        {
+            this.ReadingPolicy = readingPolicy;
+            this.interactButLabel = "LoadGameButton".Translate();
+        }
+
+        protected override bool ShouldDoTypeInField
+        {
+            get
+            {
+                return false;
+            }
+        }
+
+        protected override void DoFileInteraction(FileInfo fi)
+        {
+            IOUtil.LoadReadingPolicy(this.ReadingPolicy, fi);
+            base.Close();
+        }
+    }
+
 }

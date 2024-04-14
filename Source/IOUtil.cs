@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Text;
 using Verse;
@@ -156,7 +157,7 @@ namespace SaveStorageSettings
             return bills;
         }
 
-        internal static void LoadPolicy(DrugPolicy drugPolicy, FileInfo fi)
+        internal static void LoadDrugPolicy(DrugPolicy drugPolicy, FileInfo fi)
         {
             try
             {
@@ -212,7 +213,7 @@ namespace SaveStorageSettings
             }
         }
 
-        internal static void LoadFoodRestriction(FoodRestriction fr, FileInfo fi)
+        internal static void LoadFoodPolicy(FoodPolicy policy, FileInfo fi)
         {
             try
             {
@@ -236,8 +237,8 @@ namespace SaveStorageSettings
                                     switch (kv[0])
                                     {
                                         case "name":
-                                            fr.label = kv[1];
-                                            ReadFiltersFromFile(fr.filter, sr);
+                                            policy.label = kv[1];
+                                            ReadFiltersFromFile(policy.filter, sr);
                                             break;
                                     }
                                 }
@@ -255,6 +256,52 @@ namespace SaveStorageSettings
                 LogException("Problem loading storage settings file '" + fi.Name + "'.", e);
             }
         }
+
+        internal static void LoadReadingPolicy(ReadingPolicy policy, FileInfo fi)
+        {
+            try
+            {
+                if (fi.Exists)
+                {
+                    // Load Data
+                    using (StreamReader sr = new StreamReader(fi.FullName))
+                    {
+                        if (sr.EndOfStream ||
+                            !ReadField(sr, out string[] kv))
+                        {
+                            throw new Exception("Trying to read from an empty file");
+                        }
+
+                        if (kv != null && "1".Equals(kv[1]))
+                        {
+                            while (!sr.EndOfStream)
+                            {
+                                if (ReadField(sr, out kv))
+                                {
+                                    switch (kv[0])
+                                    {
+                                        case "name":
+                                            policy.label = kv[1];
+                                            ReadFiltersFromFile(policy.defFilter, sr);
+                                            ReadFiltersFromFile(policy.effectFilter, sr);
+                                            break;
+                                    }
+                                }
+                            }
+                        }
+                        else
+                        {
+                            throw new Exception("Unsupported version: " + kv[1]);
+                        }
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                LogException("Problem loading storage settings file '" + fi.Name + "'.", e);
+            }
+        }
+
 
         private static void LogException(string msg, Exception e)
         {
@@ -320,6 +367,60 @@ namespace SaveStorageSettings
             return true;
         }
 
+        internal static string SerialSlotGroup(ISlotGroup iSlotGroup)
+        {
+            SlotGroup slotGroup;
+            StorageGroup storageGroup;
+            if ((slotGroup = (iSlotGroup as SlotGroup)) != null)
+            {
+                return String.Join("/", "SlotGroup", slotGroup.GetName());
+            }
+            if ((storageGroup = (iSlotGroup as StorageGroup)) != null)
+            {
+                return String.Join("/", "StorageGroup", storageGroup.GetUniqueLoadID());
+            }
+            return "NullSlotName";
+        }
+
+        internal static ISlotGroup DeSerialSlotGroup(string s)
+        {
+            string[] split = s.Split('/');
+            ISlotGroup iSlotGroup = null;
+            if (split.Length >= 2)
+            {
+                if ("SlotGroup".Equals(split[0]))
+                {
+                    if (split[1] != "UnresolvedSlotGroupName")
+                    {
+                        iSlotGroup = Find.CurrentMap?.haulDestinationManager.AllGroups
+                            .FirstOrFallback(g => g.GetName() == split[1]);
+                    }
+                }
+                if ("StorageGroup".Equals(split[0]))
+                {
+                    iSlotGroup = Find.CurrentMap?.haulDestinationManager.AllGroups
+                        .FirstOrFallback(g => g.StorageGroup != null && g.StorageGroup.GetUniqueLoadID() == split[1])
+                        ?.StorageGroup;
+                }
+            }
+            return iSlotGroup;
+        }
+
+        internal static Pawn DeSerialPawn(string uniqueId)
+        {
+            Pawn pawn = null;
+            foreach (Map map in Find.Maps)
+            {
+                pawn = map.mapPawns.AllPawns.FirstOrFallback(p => p.GetUniqueLoadID() == uniqueId);
+                if (pawn != null)
+                {
+                    return pawn;
+                }
+            }
+            pawn = Find.WorldPawns.AllPawnsAlive.FirstOrFallback(p => p.GetUniqueLoadID() == uniqueId);
+            return pawn;
+        }
+
         public static bool SaveCraftingSettings(BillStack bills, FileInfo fi)
         {
             try
@@ -338,8 +439,8 @@ namespace SaveStorageSettings
                                 Bill_Production p = b as Bill_Production;
 
                                 BillStoreModeDef storeMode = p.GetStoreMode();
-                                Zone_Stockpile storeZone = p.GetStoreZone();
-                                Zone_Stockpile includeFromZone = p.includeFromZone;
+                                ISlotGroup slotGroup = p.GetSlotGroup();
+                                ISlotGroup includeSlotGroup = p.GetIncludeSlotGroup();
 
                                 WriteField(sw, "bill", p.recipe.defName);
                                 if (b is Bill_ProductionWithUft)
@@ -353,18 +454,20 @@ namespace SaveStorageSettings
                                 WriteField(sw, "skillRange", p.allowedSkillRange.ToString());
                                 WriteField(sw, "suspended", p.suspended.ToString());
                                 WriteField(sw, "ingSearchRadius", p.ingredientSearchRadius.ToString());
+                                
                                 WriteField(sw, "storeMode", storeMode == BillStoreModeDefOf.SpecificStockpile ?
-                                    string.Join("/", storeMode.defName, storeZone.GetUniqueLoadID()) :
+                                    string.Join("/", storeMode.defName, SerialSlotGroup(slotGroup)) :                                    
                                     storeMode.defName
                                 );
+
                                 WriteField(sw, "repeatMode", p.repeatMode.defName);
                                 WriteField(sw, "repeatCount", p.repeatCount.ToString());
                                 WriteField(sw, "targetCount", p.targetCount.ToString());
                                 WriteField(sw, "includeEquipped", p.includeEquipped.ToString());
                                 WriteField(sw, "includeTainted", p.includeTainted.ToString());
-                                if (includeFromZone != null)
+                                if (includeSlotGroup != null)
                                 {
-                                    WriteField(sw, "includeFromZone", includeFromZone.GetUniqueLoadID());
+                                    WriteField(sw, "includeSlotGroup", SerialSlotGroup(includeSlotGroup));
                                 }
 
                                 WriteField(sw, "limitToAllowedStuff", p.limitToAllowedStuff.ToString());
@@ -372,6 +475,15 @@ namespace SaveStorageSettings
                                 WriteField(sw, "unpauseWhenYouHave", p.unpauseWhenYouHave.ToString());
                                 WriteField(sw, "hpRange", p.hpRange.ToString());
                                 WriteField(sw, "qualityRange", p.qualityRange.ToString());
+
+                                if (p.PawnRestriction != null)
+                                {
+                                    WriteField(sw, "pawnRestriction", p.PawnRestriction.GetUniqueLoadID());
+                                }
+                                WriteField(sw, "slavesOnly", p.SlavesOnly.ToString());
+                                WriteField(sw, "mechsOnly", p.MechsOnly.ToString());
+                                WriteField(sw, "nonMechsOnly", p.NonMechsOnly.ToString());
+
                                 WriteField(sw, "ingredientFilter", "");
                                 WriteFiltersToFile(p.ingredientFilter, sw);
                             }
@@ -388,7 +500,7 @@ namespace SaveStorageSettings
             return true;
         }
 
-        public static bool SavePolicySettings(DrugPolicy policy, FileInfo fi)
+        public static bool SaveDrugPolicySettings(DrugPolicy policy, FileInfo fi)
         {
             try
             {
@@ -425,7 +537,7 @@ namespace SaveStorageSettings
             }
             return true;
         }
-        public static bool SaveFoodRestrictionSettings(FoodRestriction fr, FileInfo fi)
+        public static bool SaveFoodPolicySettings(FoodPolicy policy, FileInfo fi)
         {
             try
             {
@@ -436,8 +548,34 @@ namespace SaveStorageSettings
                     {
                         WriteField(sw, "Version", "1");
 
-                        WriteField(sw, "name", fr.label);
-                        WriteFiltersToFile(fr.filter, sw);
+                        WriteField(sw, "name", policy.label);
+                        WriteFiltersToFile(policy.filter, sw);
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                LogException("Problem saving storage settings file '" + fi.Name + "'.", e);
+                return false;
+            }
+            return true;
+        }
+
+        public static bool SaveReadingPolicySettings(ReadingPolicy policy, FileInfo fi)
+        {
+            try
+            {
+                using (FileStream fileStream = File.Open(fi.FullName, FileMode.Create, FileAccess.Write))
+                {
+                    using (StreamWriter sw = new StreamWriter(fileStream))
+                    {
+                        WriteField(sw, "Version", "1");
+
+                        WriteField(sw, "name", policy.label);
+                        WriteFiltersToFile(policy.defFilter, sw);
+                        WriteField(sw, BREAK, BREAK);
+                        WriteFiltersToFile(policy.effectFilter, sw);
+                        WriteField(sw, BREAK, BREAK);
                     }
                 }
             }
@@ -557,22 +695,18 @@ namespace SaveStorageSettings
                                     storeMode = BillStoreModeDefOf.BestStockpile;
                                 }
 
-                                Zone_Stockpile storeZone = null;
+                                ISlotGroup iSlotGroup = null;
                                 if (storeMode == BillStoreModeDefOf.SpecificStockpile)
                                 {
-                                    if (storeSplit.Length > 1)
+                                    iSlotGroup = DeSerialSlotGroup(String.Join("/", storeSplit.Skip(1).ToArray()));
+                                    if (iSlotGroup == null)
                                     {
-                                        storeZone = (Zone_Stockpile)Find.CurrentMap?.zoneManager.AllZones.FirstOrFallback(z => z.GetUniqueLoadID() == storeSplit[1]);
-                                    }
-
-                                    if (storeZone == null)
-                                    {
-                                        Log.Message("Bill [" + bill.recipe.defName + "] storeZone [" + kv[1] + "] cannot be found. Defaulting to storeMode [" + BillStoreModeDefOf.BestStockpile.ToString() + "].");
+                                        Log.Message("Bill [" + bill.recipe.defName + "] slotGroup [" + kv[1] + "] cannot be found. Defaulting to storeMode [" + BillStoreModeDefOf.BestStockpile.ToString() + "].");
                                         storeMode = BillStoreModeDefOf.BestStockpile;
                                     }
                                 }
 
-                                bill.SetStoreMode(storeMode, storeZone);
+                                bill.SetStoreMode(storeMode, iSlotGroup);
                                 break;
                             case "targetCount":
                                 bill.targetCount = int.Parse(kv[1]);
@@ -583,15 +717,13 @@ namespace SaveStorageSettings
                             case "includeTainted":
                                 bill.includeTainted = bool.Parse(kv[1]);
                                 break;
-                            case "includeFromZone":
-                                Zone_Stockpile zone = (Zone_Stockpile)Find.CurrentMap?.zoneManager.AllZones.FirstOrFallback(z => z.GetUniqueLoadID() == kv[1]);
-
-                                if (zone == null)
+                            case "includeSlotGroup":
+                                ISlotGroup includeSlotGroup = DeSerialSlotGroup(kv[1]);
+                                if (includeSlotGroup == null)
                                 {
-                                    Log.Message("Bill [" + bill.recipe.defName + "] includeFromZone [" + kv[1] + "] cannot be found. Defaulting to Everywhere (null).");
+                                    Log.Message("Bill [" + bill.recipe.defName + "] includeSlotGroup [" + kv[1] + "] cannot be found. Defaulting to Everywhere (null).");
                                 }
-
-                                bill.includeFromZone = zone;
+                                bill.SetIncludeGroup(includeSlotGroup);
                                 break;
                             case "limitToAllowedStuff":
                                 bill.limitToAllowedStuff = bool.Parse(kv[1]);
@@ -608,6 +740,31 @@ namespace SaveStorageSettings
                                 break;
                             case "qualityRange":
                                 bill.qualityRange = QualityRange.FromString(kv[1]);
+                                break;
+                            case "pawnRestriction":
+                                Pawn pawn = DeSerialPawn(kv[1]);
+                                if (pawn != null)
+                                {
+                                    bill.SetPawnRestriction(pawn);
+                                }
+                                break;
+                            case "slavesOnly":
+                                if (ModsConfig.IdeologyActive && bool.Parse(kv[1]))
+                                {
+                                    bill.SetAnySlaveRestriction();
+                                }
+                                break;
+                            case "mechsOnly":
+                                if (ModsConfig.BiotechActive && bool.Parse(kv[1]))
+                                {
+                                    bill.SetAnyMechRestriction();
+                                }
+                                break;
+                            case "nonMechsOnly":
+                                if (ModsConfig.BiotechActive && bool.Parse(kv[1]))
+                                {
+                                    bill.SetAnyNonMechRestriction();
+                                }
                                 break;
                             case "ingredientFilter":
                                 ReadFiltersFromFile(bill.ingredientFilter, sr);

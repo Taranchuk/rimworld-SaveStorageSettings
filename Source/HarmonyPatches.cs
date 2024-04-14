@@ -6,6 +6,8 @@ using System.Reflection;
 using UnityEngine;
 using Verse;
 using System;
+using Verse.Sound;
+using System.Linq;
 
 namespace SaveStorageSettings
 {
@@ -173,32 +175,11 @@ namespace SaveStorageSettings
             if (__instance is Building_Storage)
             {
                 string type = !(__instance.TryGetComp<CompSaveStorageSettings>()?.props is CompProperties_SaveStorageSettings s) ? GetType(__instance.def.defName) : s.name;
-
-                yield return new Command_Action
+                var SLGizmos = GizmoUtil.YieldSaveLoadZoneGizmos(type, ((Building_Storage)__instance).GetStoreSettings().filter);
+                foreach (var aGizmo in SLGizmos)
                 {
-                    icon = HarmonyPatches.SaveTexture,
-                    defaultLabel = "SaveStorageSettings.SaveZoneSettings".Translate(),
-                    defaultDesc = "SaveStorageSettings.SaveZoneSettingsDesc".Translate(),
-                    activateSound = SoundDef.Named("Click"),
-                    action = delegate {
-                        Find.WindowStack.Add(new SaveFilterDialog(type, ((Building_Storage)__instance).settings.filter));
-                    },
-                    groupKey = 987767552
-                };
-
-                yield return new Command_Action
-                {
-                    icon = HarmonyPatches.LoadTexture,
-                    defaultLabel = "SaveStorageSettings.LoadZoneSettings".Translate(),
-                    defaultDesc = "SaveStorageSettings.LoadZoneSettingsDesc".Translate(),
-                    activateSound = SoundDef.Named("Click"),
-                    action = delegate
-                    {
-                        Find.WindowStack.Add(new LoadFilterDialog(type, ((Building_Storage)__instance).settings.filter));
-                    },
-                    groupKey = 987767553
-
-                };
+                    yield return aGizmo;
+                }
             }
         }
 
@@ -213,7 +194,29 @@ namespace SaveStorageSettings
             {
                 return "Apparel_Management";
             }
+            if (s.Contains("hopper"))
+            {
+                return "Hopper";
+            }
             return "Zone_Stockpile";
+        }
+    }
+
+    [HarmonyPatch(typeof(Building_Bookcase), "GetGizmos")]
+    static class Patch_BuildingBookcase_GetGizmos
+    {
+        static IEnumerable<Gizmo> Postfix(IEnumerable<Gizmo> __result, Building_Bookcase __instance)
+        {
+            foreach (var aGizmo in __result)
+            {
+                yield return aGizmo;
+            }
+
+            var SLGizmos = GizmoUtil.YieldSaveLoadZoneGizmos("BookCase", __instance.GetStoreSettings().filter);
+            foreach (var aGizmo in SLGizmos)
+            {
+                yield return aGizmo;
+            }
         }
     }
 
@@ -227,33 +230,11 @@ namespace SaveStorageSettings
                 yield return aGizmo;
             }
 
-            yield return new Command_Action
+            var SLGizmos = GizmoUtil.YieldSaveLoadZoneGizmos("CompBiosculpterPod", __instance.GetStoreSettings().filter);
+            foreach (var aGizmo in SLGizmos)
             {
-                icon = HarmonyPatches.SaveTexture,
-                defaultLabel = "SaveStorageSettings.SaveZoneSettings".Translate(),
-                defaultDesc = "SaveStorageSettings.SaveZoneSettingsDesc".Translate(),
-                activateSound = SoundDef.Named("Click"),
-                action = delegate
-                {
-                    var s = (StorageSettings)__instance.GetType().GetField("allowedNutritionSettings", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(__instance);
-                    Find.WindowStack.Add(new SaveFilterDialog("CompBiosculpterPod", s.filter));
-                },
-                groupKey = 987767552
-            };
-
-            yield return new Command_Action
-            {
-                icon = HarmonyPatches.LoadTexture,
-                defaultLabel = "SaveStorageSettings.LoadZoneSettings".Translate(),
-                defaultDesc = "SaveStorageSettings.LoadZoneSettingsDesc".Translate(),
-                activateSound = SoundDef.Named("Click"),
-                action = delegate
-                {
-                    var s = (StorageSettings)__instance.GetType().GetField("allowedNutritionSettings", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(__instance);
-                    Find.WindowStack.Add(new LoadFilterDialog("CompBiosculpterPod", s.filter));
-                },
-                groupKey = 987767553
-            };
+                yield return aGizmo;
+            }
         }
     }
 
@@ -266,80 +247,57 @@ namespace SaveStorageSettings
             {
                 yield return aGizmo;
             }
-
-            yield return new Command_Action
+            var SLGizmos = GizmoUtil.YieldSaveLoadZoneGizmos("Zone_Stockpile", __instance.GetStoreSettings().filter);
+            foreach (var aGizmo in SLGizmos)
             {
-                icon = HarmonyPatches.SaveTexture,
-                defaultLabel = "SaveStorageSettings.SaveZoneSettings".Translate(),
-                defaultDesc = "SaveStorageSettings.SaveZoneSettingsDesc".Translate(),
-                activateSound = SoundDef.Named("Click"),
-                action = delegate
-                {
-                    Find.WindowStack.Add(new SaveFilterDialog("Zone_Stockpile", __instance.settings.filter));
-                },
-                groupKey = 987767552
-            };
-
-            yield return new Command_Action
-            {
-                icon = HarmonyPatches.LoadTexture,
-                defaultLabel = "SaveStorageSettings.LoadZoneSettings".Translate(),
-                defaultDesc = "SaveStorageSettings.LoadZoneSettingsDesc".Translate(),
-                activateSound = SoundDef.Named("Click"),
-                action = delegate
-                {
-                    Find.WindowStack.Add(new LoadFilterDialog("Zone_Stockpile", __instance.settings.filter));
-                },
-                groupKey = 987767553
-            };
+                yield return aGizmo;
+            }
         }
     }
 
-    [HarmonyPatch(typeof(Dialog_ManageOutfits), "DoWindowContents")]
-    static class Patch_Dialog_ManageOutfits_DoWindowContents
+    [HarmonyPatch(typeof(Dialog_ManageApparelPolicies), "DoContentsRect")]
+    static class Patch_Dialog_ManageApparelPolicies_DoContentsRect
     {
-        static void Postfix(Dialog_ManageOutfits __instance, Rect inRect)
+        static void Postfix(Dialog_ManageApparelPolicies __instance, Rect rect)
         {
-            if (Widgets.ButtonText(new Rect(480f, 0f, 150f, 35f), "SaveStorageSettings.LoadAsNew".Translate(), true, false, true))
+            float x = 500;
+            if (Widgets.ButtonText(new Rect(x, 0f, 150f, 35f), "SaveStorageSettings.LoadAsNew".Translate(), true, false, true))
             {
-                Outfit outfit = Current.Game.outfitDatabase.MakeNewOutfit();
-                SetSelectedOutfit(__instance, outfit);
+                ApparelPolicy policy = Current.Game.outfitDatabase.MakeNewOutfit();
+                SetApparelPolicy(__instance, policy);
 
-                Find.WindowStack.Add(new LoadFilterDialog("Apparel_Management", outfit.filter));
+                Find.WindowStack.Add(new LoadFilterDialog("Apparel_Management", policy.filter));
             }
 
-            Outfit selectedOutfit = GetSelectedOutfit(__instance);
-            if (selectedOutfit != null)
+            ApparelPolicy selectedPolicy = GetSelectedPolicy(__instance);
+            if (selectedPolicy != null)
             {
-                Text.Font = GameFont.Small;
-                GUI.BeginGroup(new Rect(220f, 49f, 300, 32f));
-                if (Widgets.ButtonText(new Rect(0f, 0f, 150f, 32f), "SaveStorageSettings.LoadOutfit".Translate(), true, false, true))
+                if (Widgets.ButtonText(new Rect(x, 50f, 72f, 35f), "SaveStorageSettings.LoadOutfit".Translate(), true, false, true))
                 {
-                    Find.WindowStack.Add(new LoadFilterDialog("Apparel_Management", selectedOutfit.filter));
+                    Find.WindowStack.Add(new LoadFilterDialog("Apparel_Management", selectedPolicy.filter));
                 }
-                if (Widgets.ButtonText(new Rect(160f, 0f, 150f, 32f), "SaveStorageSettings.SaveOutfit".Translate(), true, false, true))
+                if (Widgets.ButtonText(new Rect(x + 77, 50f, 72f, 35f), "SaveStorageSettings.SaveOutfit".Translate(), true, false, true))
                 {
-                    Find.WindowStack.Add(new SaveFilterDialog("Apparel_Management", selectedOutfit.filter));
+                    Find.WindowStack.Add(new SaveFilterDialog("Apparel_Management", selectedPolicy.filter));
                 }
-                GUI.EndGroup();
             }
         }
 
-        private static Outfit GetSelectedOutfit(Dialog_ManageOutfits dialog)
+        private static ApparelPolicy GetSelectedPolicy(Dialog_ManageApparelPolicies dialog)
         {
-            return (Outfit)typeof(Dialog_ManageOutfits).GetProperty("SelectedOutfit", BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.GetProperty).GetValue(dialog, null);
+            return (ApparelPolicy)typeof(Dialog_ManageApparelPolicies).GetProperty("SelectedPolicy", BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.GetProperty).GetValue(dialog, null);
         }
 
-        private static void SetSelectedOutfit(Dialog_ManageOutfits dialog, Outfit selectedOutfit)
+        private static void SetApparelPolicy(Dialog_ManageApparelPolicies dialog, ApparelPolicy policy)
         {
-            typeof(Dialog_ManageOutfits).GetProperty("SelectedOutfit", BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.GetProperty).SetValue(dialog, selectedOutfit, null);
+            typeof(Dialog_ManageApparelPolicies).GetProperty("SelectedPolicy", BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.GetProperty).SetValue(dialog, policy, null);
         }
     }
 
-    [HarmonyPatch(typeof(Dialog_ManageDrugPolicies), "DoWindowContents")]
-    static class Patch_Dialog_Dialog_ManageDrugPolicies
+    [HarmonyPatch(typeof(Dialog_ManageDrugPolicies), "DoContentsRect")]
+    static class Patch_Dialog_ManageDrugPolicies_DoContentsRect
     {
-        static void Postfix(Dialog_ManageDrugPolicies __instance, Rect inRect)
+        static void Postfix(Dialog_ManageDrugPolicies __instance, Rect rect)
         {
             float x = 500;
             if (Widgets.ButtonText(new Rect(x, 0, 150f, 35f), "SaveStorageSettings.LoadAsNew".Translate(), true, false, true))
@@ -347,22 +305,19 @@ namespace SaveStorageSettings
                 DrugPolicy policy = Current.Game.drugPolicyDatabase.MakeNewDrugPolicy();
                 SetDrugPolicy(__instance, policy);
 
-                Find.WindowStack.Add(new LoadPolicyDialog("DrugPolicy", policy));
+                Find.WindowStack.Add(new LoadDrugPolicyDialog("DrugPolicy", policy));
             }
-            x += 160;
 
             DrugPolicy selectedPolicy = GetDrugPolicy(__instance);
             if (selectedPolicy != null)
             {
-                Text.Font = GameFont.Small;
-                if (Widgets.ButtonText(new Rect(x, 0f, 75, 35f), "LoadGameButton".Translate(), true, false, true))
+                if (Widgets.ButtonText(new Rect(x, 50f, 72f, 35f), "LoadGameButton".Translate(), true, false, true))
                 {
                     string label = selectedPolicy.label;
-                    Find.WindowStack.Add(new LoadPolicyDialog("DrugPolicy", selectedPolicy));
+                    Find.WindowStack.Add(new LoadDrugPolicyDialog("DrugPolicy", selectedPolicy));
                     selectedPolicy.label = label;
                 }
-                x += 80;
-                if (Widgets.ButtonText(new Rect(x, 0f, 75, 35f), "SaveGameButton".Translate(), true, false, true))
+                if (Widgets.ButtonText(new Rect(x + 77, 50f, 72f, 35f), "SaveGameButton".Translate(), true, false, true))
                 {
                     Find.WindowStack.Add(new SavePolicyDialog("DrugPolicy", selectedPolicy));
                 }
@@ -380,46 +335,104 @@ namespace SaveStorageSettings
         }
     }
 
-    [HarmonyPatch(typeof(Dialog_ManageFoodRestrictions), "DoWindowContents")]
-    static class Patch_Dialog_ManageFoodRestrictions
+    [HarmonyPatch(typeof(Dialog_ManageFoodPolicies), "DoContentsRect")]
+    static class Patch_Dialog_ManageFoodRestrictions_DoContentsRect
     {
-        static void Postfix(Dialog_ManageFoodRestrictions __instance, Rect inRect)
+        static void Postfix(Dialog_ManageFoodPolicies __instance, Rect rect)
         {
             float x = 500;
-            if (Widgets.ButtonText(new Rect(x, 0, 150f, 35f), "SaveStorageSettings.LoadAsNew".Translate(), true, false, true))
+            if (Widgets.ButtonText(new Rect(x, 0, 149f, 35f), "SaveStorageSettings.LoadAsNew".Translate(), true, false, true))
             {
-                FoodRestriction restriction = Current.Game.foodRestrictionDatabase.MakeNewFoodRestriction();
-                SetFoodRestriction(__instance, restriction);
+                FoodPolicy policy = Current.Game.foodRestrictionDatabase.MakeNewFoodRestriction();
+                SetFoodPolicy(__instance, policy);
 
-                Find.WindowStack.Add(new LoadFoodRestrictionDialog("FoodRestriction", restriction));
+                Find.WindowStack.Add(new LoadFoodRestrictionDialog("FoodRestriction", policy));
             }
 
-            FoodRestriction selected = GetFoodRestriction(__instance);
+            FoodPolicy selected = GetFoodPolicy(__instance);
             if (selected != null)
             {
-                Text.Font = GameFont.Small;
                 if (Widgets.ButtonText(new Rect(x, 50f, 72, 35f), "LoadGameButton".Translate(), true, false, true))
                 {
                     string label = selected.label;
                     Find.WindowStack.Add(new LoadFoodRestrictionDialog("FoodRestriction", selected));
                     selected.label = label;
                 }
-                x += 77;
-                if (Widgets.ButtonText(new Rect(x, 50f, 73, 35f), "SaveGameButton".Translate(), true, false, true))
+                if (Widgets.ButtonText(new Rect(x + 77, 50f, 72, 35f), "SaveGameButton".Translate(), true, false, true))
                 {
                     Find.WindowStack.Add(new SaveFoodRestrictionDialog("FoodRestriction", selected));
                 }
             }
         }
 
-        private static FoodRestriction GetFoodRestriction(Dialog_ManageFoodRestrictions dialog)
+        private static FoodPolicy GetFoodPolicy(Dialog_ManageFoodPolicies dialog)
         {
-            return (FoodRestriction)typeof(Dialog_ManageFoodRestrictions).GetProperty("SelectedFoodRestriction", BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.GetProperty).GetValue(dialog, null);
+            return (FoodPolicy)typeof(Dialog_ManageFoodPolicies).GetProperty("SelectedPolicy", BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.GetProperty).GetValue(dialog, null);
         }
 
-        private static void SetFoodRestriction(Dialog_ManageFoodRestrictions dialog, FoodRestriction selectedRestriction)
+        private static void SetFoodPolicy(Dialog_ManageFoodPolicies dialog, FoodPolicy selectedPolicy)
         {
-            typeof(Dialog_ManageFoodRestrictions).GetProperty("SelectedFoodRestriction", BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.GetProperty).SetValue(dialog, selectedRestriction, null);
+            typeof(Dialog_ManageFoodPolicies).GetProperty("SelectedPolicy", BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.GetProperty).SetValue(dialog, selectedPolicy, null);
         }
     }
+
+
+    [HarmonyPatch(typeof(Dialog_ManageReadingPolicies), "DoContentsRect")]
+    static class Patch_Dialog_ManageReadingPolicies_DoContentsRect
+    {
+        static void Postfix(Dialog_ManageReadingPolicies __instance, Rect rect)
+        {
+            float x = 500;
+            if (Widgets.ButtonText(new Rect(x, 0, 149f, 35f), "SaveStorageSettings.LoadAsNew".Translate(), true, false, true))
+            {
+                ReadingPolicy policy = Current.Game.readingPolicyDatabase.MakeNewReadingPolicy();
+                SetReadingPolicy(__instance, policy);
+                Find.WindowStack.Add(new LoadReadingPolicyDialog("ReadingPolicy", policy));
+            }
+
+            ReadingPolicy selected = GetReadingPolicy(__instance);
+            if (selected != null)
+            {
+                if (Widgets.ButtonText(new Rect(x, 50f, 72, 35f), "LoadGameButton".Translate(), true, false, true))
+                {
+                    string label = selected.label;
+                    Find.WindowStack.Add(new LoadReadingPolicyDialog("ReadingPolicy", selected));
+                    selected.label = label;
+                }
+                if (Widgets.ButtonText(new Rect(x + 77, 50f, 72, 35f), "SaveGameButton".Translate(), true, false, true))
+                {
+                    Find.WindowStack.Add(new SaveReadingPolicyDialog("ReadingPolicy", selected));
+                }
+            }
+        }
+
+        private static ReadingPolicy GetReadingPolicy(Dialog_ManageReadingPolicies dialog)
+        {
+            return (ReadingPolicy)typeof(Dialog_ManageReadingPolicies).GetProperty("SelectedPolicy", BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.GetProperty).GetValue(dialog, null);
+        }
+
+        private static void SetReadingPolicy(Dialog_ManageReadingPolicies dialog, ReadingPolicy selectedPolicy)
+        {
+            typeof(Dialog_ManageReadingPolicies).GetProperty("SelectedPolicy", BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.GetProperty).SetValue(dialog, selectedPolicy, null);
+        }
+    }
+
+    // Fix the redundant allowedDefs in the default "Anything" reading policy's defFilter
+    [HarmonyPatch(typeof(ReadingPolicyDatabase), "GenerateStartingPolicies")]
+    static class Patch_ReadingPolicyDatabase_GenerateStartingPolicies
+    {
+        static void Postfix(ReadingPolicyDatabase __instance)
+        {
+            ReadingPolicy allReadingPolicy = __instance.AllReadingPolicies.First(p => p.label == "AllReadingPolicy".Translate());
+            allReadingPolicy.defFilter.SetDisallowAll(null, null);
+            foreach (ThingDef thingDef in DefDatabase<ThingDef>.AllDefs)
+            {
+                if (thingDef.HasComp<CompBook>())
+                {
+                    allReadingPolicy.defFilter.SetAllow(thingDef, true);
+                }
+            }
+        }
+    }
+
 }
